@@ -37,7 +37,10 @@ if(BUILD_TESTING)
 endif()
 
 foreach(problem RANGE 1 47)
-  string(FORMAT "%03d" problem_id ${problem})
+  if(problem LESS 10)
+    set(problem_id "00${problem}")
+  else()
+    set(problem_id "0${problem}")
+  endif()
   add_subdirectory("cpp/problems/p${problem_id}")
 endforeach()
-
