@@ -1,0 +1,55 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_CXX_STANDARD": "20",
+        "CMAKE_CUDA_ARCHITECTURES": "75",
+        "BUILD_TESTING": "ON"
+      }
+    },
+    {
+      "name": "linux-cpu-debug",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/linux-cpu-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "LEETLLM_ENABLE_CUDA": "OFF"
+      }
+    },
+    {
+      "name": "windows-cpu-debug",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/windows-cpu-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "LEETLLM_ENABLE_CUDA": "OFF"
+      },
+      "vendor": { "microsoft.com/VisualStudioSettings/CMake/1.0": { "hostOS": [ "Windows" ] } }
+    },
+    {
+      "name": "windows-cuda-debug",
+      "inherits": "windows-cpu-debug",
+      "binaryDir": "${sourceDir}/build/windows-cuda-debug",
+      "cacheVariables": {
+        "LEETLLM_ENABLE_CUDA": "ON",
+        "CMAKE_CUDA_COMPILER": "$env{CUDA_PATH}/bin/nvcc.exe"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "linux-cpu-debug", "configurePreset": "linux-cpu-debug" },
+    { "name": "windows-cpu-debug", "configurePreset": "windows-cpu-debug" },
+    { "name": "windows-cuda-debug", "configurePreset": "windows-cuda-debug" }
+  ],
+  "testPresets": [
+    { "name": "linux-cpu-debug", "configurePreset": "linux-cpu-debug", "output": { "outputOnFailure": true } },
+    { "name": "windows-cpu-debug", "configurePreset": "windows-cpu-debug", "output": { "outputOnFailure": true } },
+    { "name": "windows-cuda-debug", "configurePreset": "windows-cuda-debug", "output": { "outputOnFailure": true } }
+  ]
+}
+

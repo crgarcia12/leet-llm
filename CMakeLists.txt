@@ -1,0 +1,43 @@
+cmake_minimum_required(VERSION 3.25)
+project(LeetLLMWindows LANGUAGES CXX)
+
+option(LEETLLM_ENABLE_CUDA "Build NVIDIA CUDA lesson targets" OFF)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+if(LEETLLM_ENABLE_CUDA)
+  enable_language(CUDA)
+  find_package(CUDAToolkit 12 REQUIRED)
+  set(CMAKE_CUDA_STANDARD 20)
+  set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+  if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+    set(CMAKE_CUDA_ARCHITECTURES 75)
+  endif()
+endif()
+
+add_library(leetllm_core STATIC cpp/core/leetllm.cpp)
+target_include_directories(leetllm_core PUBLIC cpp/core)
+target_compile_features(leetllm_core PUBLIC cxx_std_20)
+
+add_executable(leetllm cpp/cli/main.cpp)
+target_link_libraries(leetllm PRIVATE leetllm_core)
+
+include(CTest)
+if(BUILD_TESTING)
+  add_executable(leetllm_unit_tests cpp/tests/core_tests.cpp)
+  target_link_libraries(leetllm_unit_tests PRIVATE leetllm_core)
+  add_test(NAME core_unit_tests COMMAND leetllm_unit_tests)
+  add_test(NAME cli_list COMMAND leetllm list)
+  set_tests_properties(cli_list PROPERTIES PASS_REGULAR_EXPRESSION "047")
+  add_test(NAME cli_softmax COMMAND leetllm check 009 --cpu)
+  set_tests_properties(cli_softmax PROPERTIES PASS_REGULAR_EXPRESSION "all stable-softmax cases passed")
+  add_test(NAME cli_capstone COMMAND leetllm capstone --backend cpu --prompt hello --max-tokens 4 --seed 42)
+  set_tests_properties(cli_capstone PROPERTIES PASS_REGULAR_EXPRESSION "generated token IDs: [0-9]+ [0-9]+ [0-9]+ [0-9]+")
+endif()
+
+foreach(problem RANGE 1 47)
+  string(FORMAT "%03d" problem_id ${problem})
+  add_subdirectory("cpp/problems/p${problem_id}")
+endforeach()
+
