@@ -136,6 +136,17 @@ slice. It does not claim a pretrained model or complete Metal generation.
 - macOS 15 or newer
 - Xcode or the Xcode command-line tools with Swift and Metal
 
+An additional Windows 11/C++20/NVIDIA CUDA 12.x curriculum track is available.
+It preserves the macOS course and uses the same 001–047 lesson progression. See
+[Windows 11 and NVIDIA CUDA setup](docs/WINDOWS-CUDA.md). A Linux CPU preset is
+also provided for portable oracle validation:
+
+```sh
+cmake --preset linux-cpu-debug
+cmake --build --preset linux-cpu-debug
+ctest --preset linux-cpu-debug
+```
+
 Verify the local tools:
 
 ```sh

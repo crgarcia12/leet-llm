@@ -1,0 +1,18 @@
+name: C++ CPU curriculum
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux-cpu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake --preset linux-cpu-debug
+      - name: Build
+        run: cmake --build --preset linux-cpu-debug
+      - name: Test
+        run: ctest --preset linux-cpu-debug
+

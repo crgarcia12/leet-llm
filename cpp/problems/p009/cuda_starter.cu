@@ -1,28 +1,37 @@
 #include "cuda_check.hpp"
+
 #include <cmath>
 #include <iostream>
 #include <vector>
 
-__global__ void p009_lesson_kernel(const float* input, float* output, int count) {
-  const int index = blockIdx.x * blockDim.x + threadIdx.x;
-  if (index < count) output[index] = input[index] * 9.0f + 1.0f;
+__global__ void p009_stable_softmax_starter(const float* input, float* output,
+                                             int rows, int columns) {
+  const int row = blockIdx.x;
+  if (row >= rows || threadIdx.x != 0) return;
+  float maximum = input[row * columns];
+  for (int column = 1; column < columns; ++column)
+    maximum = fmaxf(maximum, input[row * columns + column]);
+  float denominator = 0;
+  for (int column = 0; column < columns; ++column)
+    denominator += expf(input[row * columns + column] - maximum);
+  for (int column = 0; column < columns; ++column)
+    output[row * columns + column] =
+        expf(input[row * columns + column] - maximum) / denominator;
 }
 
 int main() {
-  constexpr int count = 257;
-  std::vector<float> input(count), output(count);
-  for (int i = 0; i < count; ++i) input[i] = static_cast<float>(i % 11 - 5);
+  const std::vector<float> input{10000, 10001, 9999};
+  std::vector<float> output(3);
   float *device_input = nullptr, *device_output = nullptr;
-  CUDA_CHECK(cudaMalloc(&device_input, count * sizeof(float)));
-  CUDA_CHECK(cudaMalloc(&device_output, count * sizeof(float)));
-  CUDA_CHECK(cudaMemcpy(device_input, input.data(), count * sizeof(float), cudaMemcpyHostToDevice));
-  p009_lesson_kernel<<<(count + 127) / 128, 128>>>(device_input, device_output, count);
+  CUDA_CHECK(cudaMalloc(&device_input, 3 * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&device_output, 3 * sizeof(float)));
+  CUDA_CHECK(cudaMemcpy(device_input, input.data(), 3 * sizeof(float), cudaMemcpyHostToDevice));
+  p009_stable_softmax_starter<<<1, 32>>>(device_input, device_output, 1, 3);
   CUDA_CHECK(cudaGetLastError());
   CUDA_CHECK(cudaDeviceSynchronize());
-  CUDA_CHECK(cudaMemcpy(output.data(), device_output, count * sizeof(float), cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(output.data(), device_output, 3 * sizeof(float), cudaMemcpyDeviceToHost));
   CUDA_CHECK(cudaFree(device_input));
   CUDA_CHECK(cudaFree(device_output));
-  for (int i = 0; i < count; ++i)
-    if (std::abs(output[i] - (input[i] * 9.0f + 1.0f)) > 1e-5f) return 1;
-  std::cout << "p009 CUDA starter kernel passed CPU oracle comparison\n";
+  if (std::abs(output[1] - 0.665241f) > 1e-5f) return 1;
+  std::cout << "p009 CUDA starter stable-softmax check passed\n";
 }
