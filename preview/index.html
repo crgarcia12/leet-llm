@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LeetLLM Windows + NVIDIA Track</title>
+  <link rel="stylesheet" href="/dev/crgarcia12/leet-llm/liliput-task-5051faae/assets/style.css">
+</head>
+<body>
+  <main>
+    <p class="eyebrow">LeetLLM local learning track</p>
+    <h1>Build LLM inference from first principles on Windows and NVIDIA.</h1>
+    <p class="lede">
+      The original Swift and Metal curriculum is preserved. Every exercise from
+      001 through 047 now also includes a C++ CPU oracle, an editable CUDA
+      starter, and a canonical CUDA solution.
+    </p>
+
+    <section class="cards" aria-label="Curriculum summary">
+      <article>
+        <strong>47</strong>
+        <span>Windows + CUDA exercises</span>
+      </article>
+      <article>
+        <strong>CUDA 12</strong>
+        <span>NVIDIA kernels and validation</span>
+      </article>
+      <article>
+        <strong>Local only</strong>
+        <span>No hosted runtime or code upload</span>
+      </article>
+    </section>
+
+    <section class="start">
+      <h2>Start on your Windows machine</h2>
+      <pre><code>cmake --preset windows-cuda-debug
+cmake --build --preset windows-cuda-debug
+build\windows-cuda-debug\leetllm.exe check 009 --cuda</code></pre>
+      <p>
+        See <code>docs/WINDOWS-CUDA.md</code> for Visual Studio, CUDA Toolkit,
+        profiling, benchmarking, and troubleshooting instructions.
+      </p>
+    </section>
+  </main>
+</body>
+</html>
