@@ -15,4 +15,5 @@ jobs:
         run: cmake --build --preset linux-cpu-debug
       - name: Test
         run: ctest --preset linux-cpu-debug
-
+      - name: Check Windows lesson metadata
+        run: python3 scripts/check_windows_metadata.py

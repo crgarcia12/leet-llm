@@ -1,28 +1,54 @@
 #include "cuda_check.hpp"
+
 #include <cmath>
 #include <iostream>
 #include <vector>
 
-__global__ void p019_lesson_kernel(const float* input, float* output, int count) {
-  const int index = blockIdx.x * blockDim.x + threadIdx.x;
-  if (index < count) output[index] = input[index] * 19.0f + 1.0f;
+namespace {
+
+__global__ void online_attention_todo_kernel(const float* scores,
+                                             const float* values,
+                                             float* output,
+                                             int count) {
+  // TODO(p019): track running max and rescale previous state when max increases.
+  float denominator = 0.0f;
+  float accumulator = 0.0f;
+  for (int i = 0; i < count; ++i) {
+    const float beta = expf(scores[i]);
+    denominator += beta;
+    accumulator += beta * values[i];
+  }
+  output[0] = accumulator / denominator;
 }
 
+}  // namespace
+
 int main() {
-  constexpr int count = 257;
-  std::vector<float> input(count), output(count);
-  for (int i = 0; i < count; ++i) input[i] = static_cast<float>(i % 11 - 5);
-  float *device_input = nullptr, *device_output = nullptr;
-  CUDA_CHECK(cudaMalloc(&device_input, count * sizeof(float)));
-  CUDA_CHECK(cudaMalloc(&device_output, count * sizeof(float)));
-  CUDA_CHECK(cudaMemcpy(device_input, input.data(), count * sizeof(float), cudaMemcpyHostToDevice));
-  p019_lesson_kernel<<<(count + 127) / 128, 128>>>(device_input, device_output, count);
+  const std::vector<float> scores{1.0f, 3.0f};
+  const std::vector<float> values{2.0f, 10.0f};
+  std::vector<float> output(1, 0.0f);
+
+  float *d_scores = nullptr, *d_values = nullptr, *d_output = nullptr;
+  CUDA_CHECK(cudaMalloc(&d_scores, scores.size() * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&d_values, values.size() * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&d_output, output.size() * sizeof(float)));
+  CUDA_CHECK(cudaMemcpy(d_scores, scores.data(), scores.size() * sizeof(float), cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_values, values.data(), values.size() * sizeof(float), cudaMemcpyHostToDevice));
+
+  online_attention_todo_kernel<<<1, 1>>>(d_scores, d_values, d_output, static_cast<int>(scores.size()));
   CUDA_CHECK(cudaGetLastError());
   CUDA_CHECK(cudaDeviceSynchronize());
-  CUDA_CHECK(cudaMemcpy(output.data(), device_output, count * sizeof(float), cudaMemcpyDeviceToHost));
-  CUDA_CHECK(cudaFree(device_input));
-  CUDA_CHECK(cudaFree(device_output));
-  for (int i = 0; i < count; ++i)
-    if (std::abs(output[i] - (input[i] * 19.0f + 1.0f)) > 1e-5f) return 1;
-  std::cout << "p019 CUDA starter kernel passed CPU oracle comparison\n";
+  CUDA_CHECK(cudaMemcpy(output.data(), d_output, sizeof(float), cudaMemcpyDeviceToHost));
+
+  CUDA_CHECK(cudaFree(d_scores));
+  CUDA_CHECK(cudaFree(d_values));
+  CUDA_CHECK(cudaFree(d_output));
+
+  const float expected = 9.046376f;
+  if (std::abs(output[0] - expected) <= 1e-3f) {
+    std::cerr << "p019 starter unexpectedly passed; TODO online rescaling is missing\n";
+    return 1;
+  }
+  std::cerr << "p019 starter intentionally fails validation until TODOs are completed\n";
+  return 1;
 }

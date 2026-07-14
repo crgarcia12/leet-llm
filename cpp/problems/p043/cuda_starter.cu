@@ -1,28 +1,21 @@
 #include "cuda_check.hpp"
-#include <cmath>
+
 #include <iostream>
 #include <vector>
 
-__global__ void p043_lesson_kernel(const float* input, float* output, int count) {
-  const int index = blockIdx.x * blockDim.x + threadIdx.x;
-  if (index < count) output[index] = input[index] * 43.0f + 1.0f;
+__global__ void fused_qkv_starter_kernel(const float* input, const float* wq,
+                                         float* query, int sequence, int model_dim, int query_dim) {
+  const int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx >= sequence * query_dim) return;
+  const int token = idx / query_dim;
+  const int out = idx % query_dim;
+  float sum = 0.0f;
+  for (int i = 0; i < model_dim; ++i) sum += input[token * model_dim + i] * wq[out * model_dim + i];
+  query[idx] = sum;
+  // TODO: fuse RMSNorm first and include key/value projections in one fused launch.
 }
 
 int main() {
-  constexpr int count = 257;
-  std::vector<float> input(count), output(count);
-  for (int i = 0; i < count; ++i) input[i] = static_cast<float>(i % 11 - 5);
-  float *device_input = nullptr, *device_output = nullptr;
-  CUDA_CHECK(cudaMalloc(&device_input, count * sizeof(float)));
-  CUDA_CHECK(cudaMalloc(&device_output, count * sizeof(float)));
-  CUDA_CHECK(cudaMemcpy(device_input, input.data(), count * sizeof(float), cudaMemcpyHostToDevice));
-  p043_lesson_kernel<<<(count + 127) / 128, 128>>>(device_input, device_output, count);
-  CUDA_CHECK(cudaGetLastError());
-  CUDA_CHECK(cudaDeviceSynchronize());
-  CUDA_CHECK(cudaMemcpy(output.data(), device_output, count * sizeof(float), cudaMemcpyDeviceToHost));
-  CUDA_CHECK(cudaFree(device_input));
-  CUDA_CHECK(cudaFree(device_output));
-  for (int i = 0; i < count; ++i)
-    if (std::abs(output[i] - (input[i] * 43.0f + 1.0f)) > 1e-5f) return 1;
-  std::cout << "p043 CUDA starter kernel passed CPU oracle comparison\n";
+  std::cout << "p043 starter builds. TODO: fused RMSNorm + Q/K/V path is incomplete.\n";
+  return 0;
 }

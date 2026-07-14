@@ -5,6 +5,7 @@ option(LEETLLM_ENABLE_CUDA "Build NVIDIA CUDA lesson targets" OFF)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 
 if(LEETLLM_ENABLE_CUDA)
   enable_language(CUDA)
@@ -22,6 +23,11 @@ target_compile_features(leetllm_core PUBLIC cxx_std_20)
 
 add_executable(leetllm cpp/cli/main.cpp)
 target_link_libraries(leetllm PRIVATE leetllm_core)
+target_compile_definitions(
+  leetllm PRIVATE LEETLLM_ENABLE_CUDA=$<BOOL:${LEETLLM_ENABLE_CUDA}>)
+if(LEETLLM_ENABLE_CUDA)
+  target_link_libraries(leetllm PRIVATE CUDA::cudart)
+endif()
 
 include(CTest)
 if(BUILD_TESTING)
@@ -30,10 +36,18 @@ if(BUILD_TESTING)
   add_test(NAME core_unit_tests COMMAND leetllm_unit_tests)
   add_test(NAME cli_list COMMAND leetllm list)
   set_tests_properties(cli_list PROPERTIES PASS_REGULAR_EXPRESSION "047")
+  add_test(NAME cli_learn_unpadded COMMAND leetllm learn 1)
+  set_tests_properties(cli_learn_unpadded PROPERTIES PASS_REGULAR_EXPRESSION "cpp/problems/p001/cuda_starter.cu")
   add_test(NAME cli_softmax COMMAND leetllm check 009 --cpu)
   set_tests_properties(cli_softmax PROPERTIES PASS_REGULAR_EXPRESSION "all stable-softmax cases passed")
   add_test(NAME cli_capstone COMMAND leetllm capstone --backend cpu --prompt hello --max-tokens 4 --seed 42)
   set_tests_properties(cli_capstone PROPERTIES PASS_REGULAR_EXPRESSION "generated token IDs: [0-9]+ [0-9]+ [0-9]+ [0-9]+")
+  find_package(Python3 QUIET COMPONENTS Interpreter)
+  if(Python3_Interpreter_FOUND)
+    add_test(
+      NAME windows_metadata_complete
+      COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/scripts/check_windows_metadata.py")
+  endif()
 endif()
 
 foreach(problem RANGE 1 47)

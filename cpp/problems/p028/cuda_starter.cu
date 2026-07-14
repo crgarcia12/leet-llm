@@ -1,28 +1,38 @@
 #include "cuda_check.hpp"
-#include <cmath>
-#include <iostream>
-#include <vector>
 
-__global__ void p028_lesson_kernel(const float* input, float* output, int count) {
-  const int index = blockIdx.x * blockDim.x + threadIdx.x;
-  if (index < count) output[index] = input[index] * 28.0f + 1.0f;
+#include <iostream>
+
+namespace {
+
+__global__ void quantize_kv_todo_kernel(const float* k_in, const float* v_in,
+                                        signed char* k_q, signed char* v_q,
+                                        float* shared_scales, int element_count) {
+  const int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx >= element_count) return;
+
+  // TODO(p028): compute independent K and V per-vector scales and quantize each vector.
+  k_q[idx] = static_cast<signed char>(k_in[idx]);
+  v_q[idx] = static_cast<signed char>(v_in[idx]);
+  shared_scales[idx] = 1.0f;
 }
 
+}  // namespace
+
 int main() {
-  constexpr int count = 257;
-  std::vector<float> input(count), output(count);
-  for (int i = 0; i < count; ++i) input[i] = static_cast<float>(i % 11 - 5);
-  float *device_input = nullptr, *device_output = nullptr;
-  CUDA_CHECK(cudaMalloc(&device_input, count * sizeof(float)));
-  CUDA_CHECK(cudaMalloc(&device_output, count * sizeof(float)));
-  CUDA_CHECK(cudaMemcpy(device_input, input.data(), count * sizeof(float), cudaMemcpyHostToDevice));
-  p028_lesson_kernel<<<(count + 127) / 128, 128>>>(device_input, device_output, count);
+  float *d_k = nullptr, *d_v = nullptr;
+  signed char *d_kq = nullptr, *d_vq = nullptr;
+  float* d_scales = nullptr;
+  CUDA_CHECK(cudaMalloc(&d_k, 8 * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&d_v, 8 * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&d_kq, 8));
+  CUDA_CHECK(cudaMalloc(&d_vq, 8));
+  CUDA_CHECK(cudaMalloc(&d_scales, 8 * sizeof(float)));
+  quantize_kv_todo_kernel<<<1, 64>>>(d_k, d_v, d_kq, d_vq, d_scales, 8);
   CUDA_CHECK(cudaGetLastError());
   CUDA_CHECK(cudaDeviceSynchronize());
-  CUDA_CHECK(cudaMemcpy(output.data(), device_output, count * sizeof(float), cudaMemcpyDeviceToHost));
-  CUDA_CHECK(cudaFree(device_input));
-  CUDA_CHECK(cudaFree(device_output));
-  for (int i = 0; i < count; ++i)
-    if (std::abs(output[i] - (input[i] * 28.0f + 1.0f)) > 1e-5f) return 1;
-  std::cout << "p028 CUDA starter kernel passed CPU oracle comparison\n";
+  CUDA_CHECK(cudaFree(d_k)); CUDA_CHECK(cudaFree(d_v));
+  CUDA_CHECK(cudaFree(d_kq)); CUDA_CHECK(cudaFree(d_vq)); CUDA_CHECK(cudaFree(d_scales));
+
+  std::cerr << "p028 starter intentionally fails: TODO independent K/V quantization metadata\n";
+  return 1;
 }

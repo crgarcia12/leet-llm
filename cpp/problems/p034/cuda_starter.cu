@@ -1,28 +1,34 @@
 #include "cuda_check.hpp"
-#include <cmath>
-#include <iostream>
-#include <vector>
 
-__global__ void p034_lesson_kernel(const float* input, float* output, int count) {
-  const int index = blockIdx.x * blockDim.x + threadIdx.x;
-  if (index < count) output[index] = input[index] * 34.0f + 1.0f;
+#include <iostream>
+
+namespace {
+
+__global__ void q4_path_todo_kernel(const float* state, const unsigned char* packed,
+                                    const float* scales, float* next,
+                                    int dim) {
+  const int row = blockIdx.x * blockDim.x + threadIdx.x;
+  if (row >= dim) return;
+
+  // TODO(p034): decode canonical low-nibble-first Q4 values and compare against float path.
+  next[row] = state[row];
 }
 
+}  // namespace
+
 int main() {
-  constexpr int count = 257;
-  std::vector<float> input(count), output(count);
-  for (int i = 0; i < count; ++i) input[i] = static_cast<float>(i % 11 - 5);
-  float *device_input = nullptr, *device_output = nullptr;
-  CUDA_CHECK(cudaMalloc(&device_input, count * sizeof(float)));
-  CUDA_CHECK(cudaMalloc(&device_output, count * sizeof(float)));
-  CUDA_CHECK(cudaMemcpy(device_input, input.data(), count * sizeof(float), cudaMemcpyHostToDevice));
-  p034_lesson_kernel<<<(count + 127) / 128, 128>>>(device_input, device_output, count);
+  float *d_state = nullptr, *d_scales = nullptr, *d_next = nullptr;
+  unsigned char* d_packed = nullptr;
+  CUDA_CHECK(cudaMalloc(&d_state, 5 * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&d_packed, 13));
+  CUDA_CHECK(cudaMalloc(&d_scales, 10 * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&d_next, 5 * sizeof(float)));
+  q4_path_todo_kernel<<<1, 64>>>(d_state, d_packed, d_scales, d_next, 5);
   CUDA_CHECK(cudaGetLastError());
   CUDA_CHECK(cudaDeviceSynchronize());
-  CUDA_CHECK(cudaMemcpy(output.data(), device_output, count * sizeof(float), cudaMemcpyDeviceToHost));
-  CUDA_CHECK(cudaFree(device_input));
-  CUDA_CHECK(cudaFree(device_output));
-  for (int i = 0; i < count; ++i)
-    if (std::abs(output[i] - (input[i] * 34.0f + 1.0f)) > 1e-5f) return 1;
-  std::cout << "p034 CUDA starter kernel passed CPU oracle comparison\n";
+  CUDA_CHECK(cudaFree(d_state)); CUDA_CHECK(cudaFree(d_packed));
+  CUDA_CHECK(cudaFree(d_scales)); CUDA_CHECK(cudaFree(d_next));
+
+  std::cerr << "p034 starter intentionally fails: TODO propagation capture + mismatch diagnosis\n";
+  return 1;
 }

@@ -1,28 +1,35 @@
 #include "cuda_check.hpp"
-#include <cmath>
+
+#include <algorithm>
+#include <cstdint>
 #include <iostream>
 #include <vector>
 
-__global__ void p038_lesson_kernel(const float* input, float* output, int count) {
-  const int index = blockIdx.x * blockDim.x + threadIdx.x;
-  if (index < count) output[index] = input[index] * 38.0f + 1.0f;
+struct SplitMix64 {
+  std::uint64_t state;
+  explicit SplitMix64(std::uint64_t seed) : state(seed) {}
+  std::uint64_t next() {
+    state += 0x9e3779b97f4a7c15ULL;
+    std::uint64_t z = state;
+    z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
+    z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
+    return z ^ (z >> 31);
+  }
+};
+
+int sample_starter(const std::vector<float>& logits, SplitMix64& rng) {
+  const auto best = std::max_element(logits.begin(), logits.end()) - logits.begin();
+  (void)rng;
+  // TODO: implement temperature/top-k/top-p filtering, stable softmax, and one seeded draw.
+  return static_cast<int>(best);
 }
 
 int main() {
-  constexpr int count = 257;
-  std::vector<float> input(count), output(count);
-  for (int i = 0; i < count; ++i) input[i] = static_cast<float>(i % 11 - 5);
-  float *device_input = nullptr, *device_output = nullptr;
-  CUDA_CHECK(cudaMalloc(&device_input, count * sizeof(float)));
-  CUDA_CHECK(cudaMalloc(&device_output, count * sizeof(float)));
-  CUDA_CHECK(cudaMemcpy(device_input, input.data(), count * sizeof(float), cudaMemcpyHostToDevice));
-  p038_lesson_kernel<<<(count + 127) / 128, 128>>>(device_input, device_output, count);
-  CUDA_CHECK(cudaGetLastError());
-  CUDA_CHECK(cudaDeviceSynchronize());
-  CUDA_CHECK(cudaMemcpy(output.data(), device_output, count * sizeof(float), cudaMemcpyDeviceToHost));
-  CUDA_CHECK(cudaFree(device_input));
-  CUDA_CHECK(cudaFree(device_output));
-  for (int i = 0; i < count; ++i)
-    if (std::abs(output[i] - (input[i] * 38.0f + 1.0f)) > 1e-5f) return 1;
-  std::cout << "p038 CUDA starter kernel passed CPU oracle comparison\n";
+  SplitMix64 rng(13);
+  const int selected = sample_starter({4, 3, 2, 1}, rng);
+  if (selected == 0) {
+    std::cout << "p038 starter builds. TODO: stochastic sampling path is intentionally incomplete.\n";
+    return 0;
+  }
+  return 1;
 }

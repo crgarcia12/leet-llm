@@ -1,28 +1,34 @@
 #include "cuda_check.hpp"
-#include <cmath>
-#include <iostream>
-#include <vector>
 
-__global__ void p033_lesson_kernel(const float* input, float* output, int count) {
-  const int index = blockIdx.x * blockDim.x + threadIdx.x;
-  if (index < count) output[index] = input[index] * 33.0f + 1.0f;
+#include <iostream>
+
+namespace {
+
+__global__ void fused_q4_gemv_todo_kernel(const unsigned char* packed, const float* scales,
+                                          const float* input, float* output,
+                                          int out_channels) {
+  const int row = blockIdx.x * blockDim.x + threadIdx.x;
+  if (row >= out_channels) return;
+
+  // TODO(p033): fuse Q4 unpack + scale lookup + GEMV accumulation per output row.
+  output[row] = 0.0f;
 }
 
+}  // namespace
+
 int main() {
-  constexpr int count = 257;
-  std::vector<float> input(count), output(count);
-  for (int i = 0; i < count; ++i) input[i] = static_cast<float>(i % 11 - 5);
-  float *device_input = nullptr, *device_output = nullptr;
-  CUDA_CHECK(cudaMalloc(&device_input, count * sizeof(float)));
-  CUDA_CHECK(cudaMalloc(&device_output, count * sizeof(float)));
-  CUDA_CHECK(cudaMemcpy(device_input, input.data(), count * sizeof(float), cudaMemcpyHostToDevice));
-  p033_lesson_kernel<<<(count + 127) / 128, 128>>>(device_input, device_output, count);
+  unsigned char* d_packed = nullptr;
+  float *d_scales = nullptr, *d_in = nullptr, *d_out = nullptr;
+  CUDA_CHECK(cudaMalloc(&d_packed, 5));
+  CUDA_CHECK(cudaMalloc(&d_scales, 4 * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&d_in, 5 * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&d_out, 2 * sizeof(float)));
+  fused_q4_gemv_todo_kernel<<<1, 64>>>(d_packed, d_scales, d_in, d_out, 2);
   CUDA_CHECK(cudaGetLastError());
   CUDA_CHECK(cudaDeviceSynchronize());
-  CUDA_CHECK(cudaMemcpy(output.data(), device_output, count * sizeof(float), cudaMemcpyDeviceToHost));
-  CUDA_CHECK(cudaFree(device_input));
-  CUDA_CHECK(cudaFree(device_output));
-  for (int i = 0; i < count; ++i)
-    if (std::abs(output[i] - (input[i] * 33.0f + 1.0f)) > 1e-5f) return 1;
-  std::cout << "p033 CUDA starter kernel passed CPU oracle comparison\n";
+  CUDA_CHECK(cudaFree(d_packed)); CUDA_CHECK(cudaFree(d_scales));
+  CUDA_CHECK(cudaFree(d_in)); CUDA_CHECK(cudaFree(d_out));
+
+  std::cerr << "p033 starter intentionally fails: TODO fused Q4 GEMV kernel\n";
+  return 1;
 }

@@ -1,28 +1,29 @@
 #include "cuda_check.hpp"
-#include <cmath>
-#include <iostream>
-#include <vector>
 
-__global__ void p036_lesson_kernel(const float* input, float* output, int count) {
-  const int index = blockIdx.x * blockDim.x + threadIdx.x;
-  if (index < count) output[index] = input[index] * 36.0f + 1.0f;
+#include <iostream>
+
+namespace {
+
+__global__ void decode_weight_format_todo_kernel(const unsigned char* bytes,
+                                                 unsigned int* version_out) {
+  if (blockIdx.x != 0 || threadIdx.x != 0) return;
+
+  // TODO(p036): decode little-endian preamble fields and validate payload bounds.
+  version_out[0] = bytes[8];
 }
 
+}  // namespace
+
 int main() {
-  constexpr int count = 257;
-  std::vector<float> input(count), output(count);
-  for (int i = 0; i < count; ++i) input[i] = static_cast<float>(i % 11 - 5);
-  float *device_input = nullptr, *device_output = nullptr;
-  CUDA_CHECK(cudaMalloc(&device_input, count * sizeof(float)));
-  CUDA_CHECK(cudaMalloc(&device_output, count * sizeof(float)));
-  CUDA_CHECK(cudaMemcpy(device_input, input.data(), count * sizeof(float), cudaMemcpyHostToDevice));
-  p036_lesson_kernel<<<(count + 127) / 128, 128>>>(device_input, device_output, count);
+  unsigned char* d_bytes = nullptr;
+  unsigned int* d_version = nullptr;
+  CUDA_CHECK(cudaMalloc(&d_bytes, 32));
+  CUDA_CHECK(cudaMalloc(&d_version, sizeof(unsigned int)));
+  decode_weight_format_todo_kernel<<<1, 1>>>(d_bytes, d_version);
   CUDA_CHECK(cudaGetLastError());
   CUDA_CHECK(cudaDeviceSynchronize());
-  CUDA_CHECK(cudaMemcpy(output.data(), device_output, count * sizeof(float), cudaMemcpyDeviceToHost));
-  CUDA_CHECK(cudaFree(device_input));
-  CUDA_CHECK(cudaFree(device_output));
-  for (int i = 0; i < count; ++i)
-    if (std::abs(output[i] - (input[i] * 36.0f + 1.0f)) > 1e-5f) return 1;
-  std::cout << "p036 CUDA starter kernel passed CPU oracle comparison\n";
+  CUDA_CHECK(cudaFree(d_bytes)); CUDA_CHECK(cudaFree(d_version));
+
+  std::cerr << "p036 starter intentionally fails: TODO bounds-checked weight-format decode\n";
+  return 1;
 }

@@ -1,28 +1,35 @@
 #include "cuda_check.hpp"
-#include <cmath>
+
 #include <iostream>
 #include <vector>
 
-__global__ void p026_lesson_kernel(const float* input, float* output, int count) {
-  const int index = blockIdx.x * blockDim.x + threadIdx.x;
-  if (index < count) output[index] = input[index] * 26.0f + 1.0f;
+namespace {
+
+__global__ void ring_append_todo_kernel(int* slots, int capacity,
+                                        int start_position, int append_count) {
+  const int token = blockIdx.x * blockDim.x + threadIdx.x;
+  if (token >= append_count) return;
+
+  // TODO(p026): implement fixed-capacity wraparound writes and chronological reads.
+  const int logical_position = start_position + token;
+  const int wrong_slot = token;  // intentionally ignores modulo wrap.
+  if (wrong_slot < capacity) slots[wrong_slot] = logical_position;
 }
 
+}  // namespace
+
 int main() {
-  constexpr int count = 257;
-  std::vector<float> input(count), output(count);
-  for (int i = 0; i < count; ++i) input[i] = static_cast<float>(i % 11 - 5);
-  float *device_input = nullptr, *device_output = nullptr;
-  CUDA_CHECK(cudaMalloc(&device_input, count * sizeof(float)));
-  CUDA_CHECK(cudaMalloc(&device_output, count * sizeof(float)));
-  CUDA_CHECK(cudaMemcpy(device_input, input.data(), count * sizeof(float), cudaMemcpyHostToDevice));
-  p026_lesson_kernel<<<(count + 127) / 128, 128>>>(device_input, device_output, count);
+  constexpr int capacity = 3;
+  constexpr int append_count = 8;
+
+  int* d_slots = nullptr;
+  CUDA_CHECK(cudaMalloc(&d_slots, capacity * sizeof(int)));
+  CUDA_CHECK(cudaMemset(d_slots, 0xff, capacity * sizeof(int)));
+  ring_append_todo_kernel<<<1, 64>>>(d_slots, capacity, 10, append_count);
   CUDA_CHECK(cudaGetLastError());
   CUDA_CHECK(cudaDeviceSynchronize());
-  CUDA_CHECK(cudaMemcpy(output.data(), device_output, count * sizeof(float), cudaMemcpyDeviceToHost));
-  CUDA_CHECK(cudaFree(device_input));
-  CUDA_CHECK(cudaFree(device_output));
-  for (int i = 0; i < count; ++i)
-    if (std::abs(output[i] - (input[i] * 26.0f + 1.0f)) > 1e-5f) return 1;
-  std::cout << "p026 CUDA starter kernel passed CPU oracle comparison\n";
+  CUDA_CHECK(cudaFree(d_slots));
+
+  std::cerr << "p026 starter intentionally fails: TODO ring overwrite and chronological ordering\n";
+  return 1;
 }

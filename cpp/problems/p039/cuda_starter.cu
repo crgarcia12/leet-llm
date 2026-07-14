@@ -1,28 +1,39 @@
 #include "cuda_check.hpp"
-#include <cmath>
+
 #include <iostream>
 #include <vector>
 
-__global__ void p039_lesson_kernel(const float* input, float* output, int count) {
+__global__ void gather_embeddings_kernel(const int* token_ids, const float* table,
+                                         float* residual, int sequence, int dim) {
   const int index = blockIdx.x * blockDim.x + threadIdx.x;
-  if (index < count) output[index] = input[index] * 39.0f + 1.0f;
+  if (index >= sequence * dim) return;
+  const int token = index / dim;
+  const int feature = index % dim;
+  residual[index] = table[token_ids[token] * dim + feature];
 }
 
 int main() {
-  constexpr int count = 257;
-  std::vector<float> input(count), output(count);
-  for (int i = 0; i < count; ++i) input[i] = static_cast<float>(i % 11 - 5);
-  float *device_input = nullptr, *device_output = nullptr;
-  CUDA_CHECK(cudaMalloc(&device_input, count * sizeof(float)));
-  CUDA_CHECK(cudaMalloc(&device_output, count * sizeof(float)));
-  CUDA_CHECK(cudaMemcpy(device_input, input.data(), count * sizeof(float), cudaMemcpyHostToDevice));
-  p039_lesson_kernel<<<(count + 127) / 128, 128>>>(device_input, device_output, count);
+  constexpr int vocab = 7, dim = 4;
+  const std::vector<int> prompt{1, 4, 2};
+  std::vector<float> embedding(vocab * dim, 0.1f), residual(prompt.size() * dim);
+
+  int* d_tokens = nullptr;
+  float *d_embedding = nullptr, *d_residual = nullptr;
+  CUDA_CHECK(cudaMalloc(&d_tokens, prompt.size() * sizeof(int)));
+  CUDA_CHECK(cudaMalloc(&d_embedding, embedding.size() * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&d_residual, residual.size() * sizeof(float)));
+  CUDA_CHECK(cudaMemcpy(d_tokens, prompt.data(), prompt.size() * sizeof(int), cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_embedding, embedding.data(), embedding.size() * sizeof(float), cudaMemcpyHostToDevice));
+  gather_embeddings_kernel<<<(static_cast<int>(residual.size()) + 127) / 128, 128>>>(
+      d_tokens, d_embedding, d_residual, static_cast<int>(prompt.size()), dim);
   CUDA_CHECK(cudaGetLastError());
   CUDA_CHECK(cudaDeviceSynchronize());
-  CUDA_CHECK(cudaMemcpy(output.data(), device_output, count * sizeof(float), cudaMemcpyDeviceToHost));
-  CUDA_CHECK(cudaFree(device_input));
-  CUDA_CHECK(cudaFree(device_output));
-  for (int i = 0; i < count; ++i)
-    if (std::abs(output[i] - (input[i] * 39.0f + 1.0f)) > 1e-5f) return 1;
-  std::cout << "p039 CUDA starter kernel passed CPU oracle comparison\n";
+  CUDA_CHECK(cudaMemcpy(residual.data(), d_residual, residual.size() * sizeof(float), cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaFree(d_tokens));
+  CUDA_CHECK(cudaFree(d_embedding));
+  CUDA_CHECK(cudaFree(d_residual));
+
+  // TODO: project gathered residual rows to K/V and append absolute-position cache entries.
+  std::cout << "p039 starter builds. TODO: KV projection/cache append path is incomplete.\n";
+  return 0;
 }

@@ -1,28 +1,31 @@
 #include "cuda_check.hpp"
-#include <cmath>
-#include <iostream>
-#include <vector>
 
-__global__ void p031_lesson_kernel(const float* input, float* output, int count) {
-  const int index = blockIdx.x * blockDim.x + threadIdx.x;
-  if (index < count) output[index] = input[index] * 31.0f + 1.0f;
+#include <iostream>
+
+namespace {
+
+__global__ void pack_int4_todo_kernel(const signed char* input, unsigned char* packed,
+                                      int count) {
+  const int pair = blockIdx.x * blockDim.x + threadIdx.x;
+  const int idx = pair * 2;
+  if (idx >= count) return;
+
+  // TODO(p031): pack low nibble first with two's-complement signed q4 values.
+  packed[pair] = static_cast<unsigned char>(input[idx]);
 }
 
+}  // namespace
+
 int main() {
-  constexpr int count = 257;
-  std::vector<float> input(count), output(count);
-  for (int i = 0; i < count; ++i) input[i] = static_cast<float>(i % 11 - 5);
-  float *device_input = nullptr, *device_output = nullptr;
-  CUDA_CHECK(cudaMalloc(&device_input, count * sizeof(float)));
-  CUDA_CHECK(cudaMalloc(&device_output, count * sizeof(float)));
-  CUDA_CHECK(cudaMemcpy(device_input, input.data(), count * sizeof(float), cudaMemcpyHostToDevice));
-  p031_lesson_kernel<<<(count + 127) / 128, 128>>>(device_input, device_output, count);
+  signed char* d_values = nullptr;
+  unsigned char* d_packed = nullptr;
+  CUDA_CHECK(cudaMalloc(&d_values, 7));
+  CUDA_CHECK(cudaMalloc(&d_packed, 4));
+  pack_int4_todo_kernel<<<1, 64>>>(d_values, d_packed, 7);
   CUDA_CHECK(cudaGetLastError());
   CUDA_CHECK(cudaDeviceSynchronize());
-  CUDA_CHECK(cudaMemcpy(output.data(), device_output, count * sizeof(float), cudaMemcpyDeviceToHost));
-  CUDA_CHECK(cudaFree(device_input));
-  CUDA_CHECK(cudaFree(device_output));
-  for (int i = 0; i < count; ++i)
-    if (std::abs(output[i] - (input[i] * 31.0f + 1.0f)) > 1e-5f) return 1;
-  std::cout << "p031 CUDA starter kernel passed CPU oracle comparison\n";
+  CUDA_CHECK(cudaFree(d_values)); CUDA_CHECK(cudaFree(d_packed));
+
+  std::cerr << "p031 starter intentionally fails: TODO low-nibble-first INT4 packing\n";
+  return 1;
 }

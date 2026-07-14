@@ -1,28 +1,32 @@
 #include "cuda_check.hpp"
-#include <cmath>
-#include <iostream>
-#include <vector>
 
-__global__ void p029_lesson_kernel(const float* input, float* output, int count) {
-  const int index = blockIdx.x * blockDim.x + threadIdx.x;
-  if (index < count) output[index] = input[index] * 29.0f + 1.0f;
+#include <iostream>
+
+namespace {
+
+__global__ void symmetric_int8_todo_kernel(const float* input, signed char* q,
+                                           float* scale_out, int count) {
+  const int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx >= count) return;
+
+  // TODO(p029): derive one tensor-wide scale and quantize to [-127, 127].
+  scale_out[0] = 1.0f;
+  q[idx] = 0;
 }
 
+}  // namespace
+
 int main() {
-  constexpr int count = 257;
-  std::vector<float> input(count), output(count);
-  for (int i = 0; i < count; ++i) input[i] = static_cast<float>(i % 11 - 5);
-  float *device_input = nullptr, *device_output = nullptr;
-  CUDA_CHECK(cudaMalloc(&device_input, count * sizeof(float)));
-  CUDA_CHECK(cudaMalloc(&device_output, count * sizeof(float)));
-  CUDA_CHECK(cudaMemcpy(device_input, input.data(), count * sizeof(float), cudaMemcpyHostToDevice));
-  p029_lesson_kernel<<<(count + 127) / 128, 128>>>(device_input, device_output, count);
+  float *d_in = nullptr, *d_scale = nullptr;
+  signed char* d_q = nullptr;
+  CUDA_CHECK(cudaMalloc(&d_in, 5 * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&d_q, 5));
+  CUDA_CHECK(cudaMalloc(&d_scale, sizeof(float)));
+  symmetric_int8_todo_kernel<<<1, 64>>>(d_in, d_q, d_scale, 5);
   CUDA_CHECK(cudaGetLastError());
   CUDA_CHECK(cudaDeviceSynchronize());
-  CUDA_CHECK(cudaMemcpy(output.data(), device_output, count * sizeof(float), cudaMemcpyDeviceToHost));
-  CUDA_CHECK(cudaFree(device_input));
-  CUDA_CHECK(cudaFree(device_output));
-  for (int i = 0; i < count; ++i)
-    if (std::abs(output[i] - (input[i] * 29.0f + 1.0f)) > 1e-5f) return 1;
-  std::cout << "p029 CUDA starter kernel passed CPU oracle comparison\n";
+  CUDA_CHECK(cudaFree(d_in)); CUDA_CHECK(cudaFree(d_q)); CUDA_CHECK(cudaFree(d_scale));
+
+  std::cerr << "p029 starter intentionally fails: TODO symmetric INT8 quantization\n";
+  return 1;
 }

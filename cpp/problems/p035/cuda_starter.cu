@@ -1,28 +1,28 @@
 #include "cuda_check.hpp"
-#include <cmath>
-#include <iostream>
-#include <vector>
 
-__global__ void p035_lesson_kernel(const float* input, float* output, int count) {
-  const int index = blockIdx.x * blockDim.x + threadIdx.x;
-  if (index < count) output[index] = input[index] * 35.0f + 1.0f;
+#include <iostream>
+
+namespace {
+
+__global__ void decoder_block_todo_kernel(const float* residual, float* output, int count) {
+  const int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx >= count) return;
+
+  // TODO(p035): implement pre-norm attention residual, then pre-norm MLP residual in order.
+  output[idx] = residual[idx];
 }
 
+}  // namespace
+
 int main() {
-  constexpr int count = 257;
-  std::vector<float> input(count), output(count);
-  for (int i = 0; i < count; ++i) input[i] = static_cast<float>(i % 11 - 5);
-  float *device_input = nullptr, *device_output = nullptr;
-  CUDA_CHECK(cudaMalloc(&device_input, count * sizeof(float)));
-  CUDA_CHECK(cudaMalloc(&device_output, count * sizeof(float)));
-  CUDA_CHECK(cudaMemcpy(device_input, input.data(), count * sizeof(float), cudaMemcpyHostToDevice));
-  p035_lesson_kernel<<<(count + 127) / 128, 128>>>(device_input, device_output, count);
+  float *d_residual = nullptr, *d_output = nullptr;
+  CUDA_CHECK(cudaMalloc(&d_residual, 2 * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&d_output, 2 * sizeof(float)));
+  decoder_block_todo_kernel<<<1, 64>>>(d_residual, d_output, 2);
   CUDA_CHECK(cudaGetLastError());
   CUDA_CHECK(cudaDeviceSynchronize());
-  CUDA_CHECK(cudaMemcpy(output.data(), device_output, count * sizeof(float), cudaMemcpyDeviceToHost));
-  CUDA_CHECK(cudaFree(device_input));
-  CUDA_CHECK(cudaFree(device_output));
-  for (int i = 0; i < count; ++i)
-    if (std::abs(output[i] - (input[i] * 35.0f + 1.0f)) > 1e-5f) return 1;
-  std::cout << "p035 CUDA starter kernel passed CPU oracle comparison\n";
+  CUDA_CHECK(cudaFree(d_residual)); CUDA_CHECK(cudaFree(d_output));
+
+  std::cerr << "p035 starter intentionally fails: TODO full decoder block ordering\n";
+  return 1;
 }

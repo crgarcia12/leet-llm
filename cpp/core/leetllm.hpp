@@ -20,7 +20,11 @@ Tensor2D stable_softmax(const std::vector<float>& values, std::size_t rows,
 bool run_oracle(int lesson, std::string& detail);
 std::vector<int> capstone_generate(const std::string& prompt, int max_tokens,
                                    std::uint64_t seed);
-void write_roofline_report(const std::filesystem::path& output);
+void write_roofline_report(const std::filesystem::path& output,
+                           const std::string& gpu_model,
+                           const std::string& driver_version,
+                           const std::string& runtime_version,
+                           int warmup_count, int measured_iterations,
+                           double measured_duration_ms);
 
 }  // namespace leetllm
-

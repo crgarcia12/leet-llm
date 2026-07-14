@@ -33,12 +33,21 @@ cmake --preset windows-cuda-debug
 cmake --build --preset windows-cuda-debug
 ctest --preset windows-cuda-debug
 build\windows-cuda-debug\leetllm.exe check 009 --cuda
+build\windows-cuda-debug\leetllm.exe benchmark 009 --cuda --iterations 20
 scripts\validate-windows.ps1 -Cuda -Output build\reports\windows-nvidia-validation.json
 ```
 
 Every `cpp/problems/pNNN` directory contains a CPU oracle, editable CUDA starter,
 canonical CUDA solution, and CMake target declarations. CUDA calls use
 `CUDA_CHECK`; canonical results are checked against CPU invariants.
+Lesson 000 is orientation reading and therefore has no executable target. The
+machine-readable Windows catalog is `cpp/lessons/windows-lessons.json`; validate
+its paths and 000–047 coverage with `python scripts/check_windows_metadata.py`.
+
+`check --cuda` launches the built canonical CUDA executable. It never reports a
+CUDA pass from the CPU oracle alone. `benchmark` performs one warm-up and reports
+end-to-end process time, including process startup, transfers, and synchronization;
+use Nsight or CUDA events when kernel-only timing is required.
 
 ## Profiling
 
@@ -47,8 +56,8 @@ canonical lesson under **Nsight Systems** for timeline/transfer analysis or
 **Nsight Compute** for kernel metrics:
 
 ```powershell
-nsys profile build\windows-cuda-debug\cpp\problems\p009\p009_cuda_solution.exe
-ncu build\windows-cuda-debug\cpp\problems\p047\p047_cuda_solution.exe
+nsys profile build\windows-cuda-debug\p009_cuda_solution.exe
+ncu build\windows-cuda-debug\p047_cuda_solution.exe
 ```
 
 Warm up before measuring and keep transfers, synchronization, duration,
@@ -67,3 +76,6 @@ bandwidth, and throughput boundaries explicit.
 All builds, checks, reports, and profiling run on the local machine. No source or
 measurement data is transmitted.
 
+CUDA build and runtime results must be collected on actual Windows NVIDIA
+hardware. CPU-only CI validates configuration, metadata, and CPU oracles but is
+not evidence of CUDA compilation, execution, performance, or numerical parity.

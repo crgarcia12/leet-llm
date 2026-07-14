@@ -147,6 +147,10 @@ cmake --build --preset linux-cpu-debug
 ctest --preset linux-cpu-debug
 ```
 
+The Windows catalog includes orientation lesson 000 plus runnable lessons
+001–047. CUDA checks and benchmarks execute only in a CUDA-enabled build on real
+NVIDIA hardware; CPU CI does not simulate a CUDA pass.
+
 Verify the local tools:
 
 ```sh

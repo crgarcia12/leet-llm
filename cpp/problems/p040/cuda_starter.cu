@@ -1,28 +1,32 @@
 #include "cuda_check.hpp"
-#include <cmath>
+
 #include <iostream>
 #include <vector>
 
-__global__ void p040_lesson_kernel(const float* input, float* output, int count) {
-  const int index = blockIdx.x * blockDim.x + threadIdx.x;
-  if (index < count) output[index] = input[index] * 40.0f + 1.0f;
+__global__ void append_kv_kernel(const float* residual, const float* wk, const float* wv,
+                                 float* cache_k, float* cache_v, int context_before, int dim) {
+  const int out = blockIdx.x * blockDim.x + threadIdx.x;
+  if (out >= dim) return;
+  cache_k[context_before * dim + out] = residual[out];
+  cache_v[context_before * dim + out] = residual[out];
+  (void)wk;
+  (void)wv;
+  // TODO: project residual through Wk/Wv before append.
 }
 
 int main() {
-  constexpr int count = 257;
-  std::vector<float> input(count), output(count);
-  for (int i = 0; i < count; ++i) input[i] = static_cast<float>(i % 11 - 5);
-  float *device_input = nullptr, *device_output = nullptr;
-  CUDA_CHECK(cudaMalloc(&device_input, count * sizeof(float)));
-  CUDA_CHECK(cudaMalloc(&device_output, count * sizeof(float)));
-  CUDA_CHECK(cudaMemcpy(device_input, input.data(), count * sizeof(float), cudaMemcpyHostToDevice));
-  p040_lesson_kernel<<<(count + 127) / 128, 128>>>(device_input, device_output, count);
+  constexpr int dim = 4;
+  std::vector<float> residual{0.5f, 1.0f, -0.25f, 0.75f};
+  std::vector<float> cache((2 + 1) * dim, 0.0f);
+  float *d_residual = nullptr, *d_cache = nullptr;
+  CUDA_CHECK(cudaMalloc(&d_residual, dim * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&d_cache, cache.size() * sizeof(float)));
+  CUDA_CHECK(cudaMemcpy(d_residual, residual.data(), dim * sizeof(float), cudaMemcpyHostToDevice));
+  append_kv_kernel<<<1, 128>>>(d_residual, nullptr, nullptr, d_cache, d_cache, 2, dim);
   CUDA_CHECK(cudaGetLastError());
   CUDA_CHECK(cudaDeviceSynchronize());
-  CUDA_CHECK(cudaMemcpy(output.data(), device_output, count * sizeof(float), cudaMemcpyDeviceToHost));
-  CUDA_CHECK(cudaFree(device_input));
-  CUDA_CHECK(cudaFree(device_output));
-  for (int i = 0; i < count; ++i)
-    if (std::abs(output[i] - (input[i] * 40.0f + 1.0f)) > 1e-5f) return 1;
-  std::cout << "p040 CUDA starter kernel passed CPU oracle comparison\n";
+  CUDA_CHECK(cudaFree(d_residual));
+  CUDA_CHECK(cudaFree(d_cache));
+  std::cout << "p040 starter builds. TODO: cached attention and sampling update are incomplete.\n";
+  return 0;
 }
